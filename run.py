@@ -7,7 +7,7 @@ from utils.uncertainty import compute_weights
 from core.kd_trainer import train_student_kd
 from core.metrics import mae, rmse, smape, horizon_metrics
 
-DATA_PATH = "data/sample.csv"
+DATA_PATH = "data/Wfp_price.csv"
 
 series = load_series(DATA_PATH)
 train, val, test = split_series(series)
