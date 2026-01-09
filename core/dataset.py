@@ -25,3 +25,20 @@ def normalize(series):
     mean = series.mean()
     std = series.std() + 1e-6
     return (series - mean) / std, mean, std
+
+def compute_regime_scores(series, lookback):
+    """
+    Computes a regime-instability score per window using rolling volatility.
+    Returns one score per (X, Y) window.
+    """
+    scores = []
+    for i in range(lookback, len(series)):
+        window = series[i - lookback : i]
+        score = window.std()
+        scores.append(score)
+
+    scores = np.array(scores)
+
+    # normalize to mean 1 for stability
+    scores = scores / (scores.mean() + 1e-6)
+    return scores.astype("float32")
