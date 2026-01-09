@@ -46,3 +46,37 @@ def compute_regime_scores(series, lookback, beta=0.3, tau=0.5):
     # bounded, smooth transform
     scores = 1.0 + beta * np.tanh((raw - 1.0) / tau)
     return scores.astype("float32")
+
+
+def augment_data(X, Y, noise_std=0.02, scale_range=(0.95, 1.05)):
+    """
+    Apply data augmentation to time series windows.
+
+    Args:
+        X: Input windows [N, lookback]
+        Y: Target windows [N, horizon]
+        noise_std: Standard deviation of Gaussian noise to add
+        scale_range: Range for random scaling factor
+
+    Returns:
+        Augmented X and Y
+    """
+    X_aug = []
+    Y_aug = []
+
+    # Original data
+    X_aug.append(X)
+    Y_aug.append(Y)
+
+    # Augmentation 1: Add small Gaussian noise
+    noise_x = np.random.normal(0, noise_std, X.shape).astype("float32")
+    noise_y = np.random.normal(0, noise_std, Y.shape).astype("float32")
+    X_aug.append(X + noise_x)
+    Y_aug.append(Y + noise_y)
+
+    # Augmentation 2: Random scaling
+    scale = np.random.uniform(scale_range[0], scale_range[1], (len(X), 1)).astype("float32")
+    X_aug.append(X * scale)
+    Y_aug.append(Y * scale)
+
+    return np.vstack(X_aug), np.vstack(Y_aug)
