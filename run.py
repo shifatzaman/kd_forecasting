@@ -5,6 +5,7 @@ from teachers.patchtst import PatchTSTTeacher
 from students.mlp import MLPStudent
 from utils.uncertainty import compute_weights
 from core.kd_trainer import train_student_kd
+from core.metrics import mae, rmse, smape, horizon_metrics
 
 DATA_PATH = "data/sample.csv"
 
@@ -24,5 +25,18 @@ for t in teachers:
 
 weights = compute_weights(Yva, va_preds)
 student = train_student_kd(Xtr, Ytr, tr_preds, weights, MLPStudent())
+
+# Evaluate on test set
+student_preds = student(
+    torch.tensor(Xte).unsqueeze(-1)
+).detach().numpy()
+
+print("Overall MAE:", mae(Yte, student_preds))
+print("Overall RMSE:", rmse(Yte, student_preds))
+print("Overall sMAPE:", smape(Yte, student_preds))
+
+print("\nHorizon-wise metrics:")
+for h, m in horizon_metrics(Yte, student_preds).items():
+    print(h, m)
 
 print("Training complete.")
