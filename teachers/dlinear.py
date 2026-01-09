@@ -1,46 +1,131 @@
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from core.dataset import make_windows
+
 from teachers.base import TeacherModel
+from core.dataset import make_windows
+
 
 class DLinear(nn.Module):
-    def __init__(self, lookback=24, horizon=6, kernel=25):
+    """
+    DLinear: Decomposition-Linear model for time series forecasting.
+
+    Decomposes input into:
+      - Trend (moving average)
+      - Seasonal / residual
+
+    Input:  [B, lookback, 1]
+    Output: [B, horizon]
+    """
+
+    def __init__(
+        self,
+        lookback: int,
+        horizon: int,
+        kernel_size: int = 25,
+    ):
         super().__init__()
-        self.linear_t = nn.Linear(lookback, horizon)
-        self.linear_s = nn.Linear(lookback, horizon)
-        self.kernel = kernel
+
+        self.lookback = lookback
+        self.horizon = horizon
+        self.kernel_size = kernel_size
+
+        # Linear projections for trend and seasonal components
+        self.linear_trend = nn.Linear(lookback, horizon)
+        self.linear_seasonal = nn.Linear(lookback, horizon)
+
+    def moving_average(self, x):
+        """
+        x: [B, lookback]
+        returns: [B, lookback]
+        """
+        pad = self.kernel_size // 2
+
+        # reflect padding avoids edge artifacts
+        x = F.pad(x.unsqueeze(1), (pad, pad), mode="reflect")
+        x = F.avg_pool1d(x, kernel_size=self.kernel_size, stride=1)
+
+        return x.squeeze(1)
 
     def forward(self, x):
-        x = x.squeeze(-1)
-        pad = self.kernel // 2
-        trend = F.avg_pool1d(
-            F.pad(x.unsqueeze(1), (pad, pad), mode="reflect"),
-            self.kernel, stride=1
-        ).squeeze(1)
+        """
+        x: [B, lookback, 1]
+        """
+        # remove channel dimension
+        x = x.squeeze(-1)  # [B, lookback]
+
+        # trend + seasonal decomposition
+        trend = self.moving_average(x)
         seasonal = x - trend
-        return self.linear_t(trend) + self.linear_s(seasonal)
+
+        # linear forecasts
+        out_trend = self.linear_trend(trend)
+        out_seasonal = self.linear_seasonal(seasonal)
+
+        return out_trend + out_seasonal  # [B, horizon]
+
 
 class DLinearTeacher(TeacherModel):
-    def __init__(self, lookback=24, horizon=6, epochs=50):
-        self.model = DLinear(lookback, horizon)
+    """
+    DLinear teacher wrapper following TeacherModel interface.
+    """
+
+    def __init__(
+        self,
+        lookback: int,
+        horizon: int,
+        epochs: int,
+        kernel_size: int = 25,
+        lr: float = 1e-3,
+        device: str | None = None,
+    ):
+        self.lookback = lookback
+        self.horizon = horizon
         self.epochs = epochs
+        self.lr = lr
+
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+
+        self.model = DLinear(
+            lookback=lookback,
+            horizon=horizon,
+            kernel_size=kernel_size,
+        ).to(self.device)
 
     def fit(self, series):
-        X, Y = make_windows(series)
-        X = torch.tensor(X).unsqueeze(-1)
-        Y = torch.tensor(Y)
-        opt = torch.optim.AdamW(self.model.parameters(), 1e-3)
-        loss = nn.L1Loss()
-        for _ in range(self.epochs):
-            pred = self.model(X)
-            l = loss(pred, Y)
-            opt.zero_grad()
-            l.backward()
-            opt.step()
+        """
+        Train DLinear on a single univariate series.
+        """
+        X, Y = make_windows(
+            series,
+            lookback=self.lookback,
+            horizon=self.horizon,
+        )
 
+        X = torch.tensor(X, dtype=torch.float32).unsqueeze(-1).to(self.device)
+        Y = torch.tensor(Y, dtype=torch.float32).to(self.device)
+
+        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
+        loss_fn = nn.L1Loss()
+
+        self.model.train()
+        for _ in range(self.epochs):
+            preds = self.model(X)
+            loss = loss_fn(preds, Y)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+    @torch.no_grad()
     def predict(self, X):
-        with torch.no_grad():
-            X = torch.tensor(X).unsqueeze(-1)
-            return self.model(X).numpy()
+        """
+        X: numpy array [N, lookback]
+        Returns: numpy array [N, horizon]
+        """
+        self.model.eval()
+
+        X = torch.tensor(X, dtype=torch.float32).unsqueeze(-1).to(self.device)
+        preds = self.model(X)
+
+        return preds.cpu().numpy()
