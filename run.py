@@ -1,3 +1,5 @@
+import torch
+import numpy as np
 
 from core.dataset import *
 from teachers.dlinear import DLinearTeacher
@@ -5,7 +7,6 @@ from teachers.patchtst import PatchTSTTeacher
 from students.mlp import MLPStudent
 from utils.uncertainty import compute_weights
 from core.kd_trainer import train_student_kd
-from core.metrics import mae, rmse, smape, horizon_metrics
 
 DATA_PATH = "data/Wfp_rice.csv"
 LOOKBACK = 24
