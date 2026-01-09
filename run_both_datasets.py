@@ -27,22 +27,22 @@ DATASETS = {
     "wheat": "data/Wfp_wheat.csv",
 }
 
-LOOKBACK = 60
+LOOKBACK = 48  # Reduced from 60 for smaller datasets
 HORIZON = 6
 PATCH_LEN = 4
 
 VAL_SIZE = 24
 TEST_SIZE = 24
 
-TEACHER_EPOCHS = 300
-STUDENT_EPOCHS = 400
-ALPHA0 = 0.6
-LEARNING_RATE = 5e-4
+TEACHER_EPOCHS = 200  # Reduced to prevent overfitting
+STUDENT_EPOCHS = 300  # Reduced
+ALPHA0 = 0.7  # Increased KD weight
+LEARNING_RATE = 1e-3  # Increased for faster convergence
 
-# Student architecture
-HIDDEN_DIM = 256
-N_BLOCKS = 3
-DROPOUT = 0.15
+# Student architecture - Simplified for small datasets
+HIDDEN_DIM = 128  # Reduced from 256
+N_BLOCKS = 2  # Reduced from 3
+DROPOUT = 0.1  # Reduced dropout
 
 SEED = 42
 
@@ -86,14 +86,13 @@ def run_experiment(dataset_name, data_path):
     regime_scores = regime_scores[: len(Xtr)]
 
     # -------------------------
-    # Data Augmentation
+    # Data Augmentation - DISABLED for now to debug
     # -------------------------
-    print(f"Original training size: {len(Xtr)}")
-    Xtr_aug, Ytr_aug = augment_data(Xtr, Ytr, noise_std=0.015, scale_range=(0.97, 1.03))
-    print(f"Augmented training size: {len(Xtr_aug)}")
-
-    # Expand regime scores for augmented data
-    regime_scores_aug = np.tile(regime_scores, 3)
+    print(f"Training size: {len(Xtr)}")
+    # Xtr_aug, Ytr_aug = augment_data(Xtr, Ytr, noise_std=0.015, scale_range=(0.97, 1.03))
+    # Use original data without augmentation
+    Xtr_aug, Ytr_aug = Xtr, Ytr
+    regime_scores_aug = regime_scores
 
     # -------------------------
     # Teachers (ensemble of 3 diverse models)
@@ -111,7 +110,7 @@ def run_experiment(dataset_name, data_path):
         teacher_name = t.__class__.__name__.replace("Teacher", "")
         print(f"  [{i+1}/{len(teachers)}] {teacher_name}...", end=" ", flush=True)
         t.fit(train)
-        tr_preds.append(t.predict(Xtr_aug))
+        tr_preds.append(t.predict(Xtr_aug))  # Now safe since Xtr_aug = Xtr
         va_preds.append(t.predict(Xva))
         print("✓")
 

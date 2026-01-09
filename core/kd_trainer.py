@@ -56,10 +56,8 @@ def train_student_kd(
         preds = student(X)
         teacher_target = (T * W).sum(dim=1)
 
-        # Combined loss: MAE + Huber for robustness
-        loss_mae = (horizon_weights * torch.abs(preds - Y)).mean()
-        loss_huber = (horizon_weights * F.huber_loss(preds, Y, reduction='none', delta=1.0)).mean()
-        loss_sup = 0.7 * loss_mae + 0.3 * loss_huber
+        # Supervised loss: MAE (simple and direct)
+        loss_sup = (horizon_weights * torch.abs(preds - Y)).mean()
 
         # KD loss (bounded regime weighting) - using MSE for smooth gradients
         loss_kd = (R * horizon_weights * (preds - teacher_target) ** 2).mean()
