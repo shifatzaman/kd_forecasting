@@ -1,5 +1,4 @@
 import torch
-import torch.nn as nn
 import numpy as np
 
 
@@ -14,7 +13,7 @@ def train_student_kd(
     alpha0=0.7,
 ):
     """
-    Regime-aware knowledge distillation training.
+    Knowledge distillation with bounded, KD-only regime weighting.
     """
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -43,8 +42,10 @@ def train_student_kd(
         preds = student(X)
         teacher_target = (T * W).sum(dim=1)
 
-        # regime + horizon weighted losses
-        loss_sup = (R * horizon_weights * torch.abs(preds - Y)).mean()
+        # supervised loss (NO regime weighting)
+        loss_sup = (horizon_weights * torch.abs(preds - Y)).mean()
+
+        # KD loss (bounded regime weighting)
         loss_kd = (R * horizon_weights * (preds - teacher_target) ** 2).mean()
 
         loss = (1 - alpha) * loss_sup + alpha * loss_kd

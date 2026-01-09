@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import torch
 
@@ -88,7 +87,7 @@ def main():
     print("Teacher weights:", weights)
 
     # -------------------------
-    # Student (Regime-Aware KD)
+    # Student (Bounded Regime-Aware KD)
     # -------------------------
     student = MLPStudent(LOOKBACK, HORIZON)
 
@@ -104,7 +103,7 @@ def main():
     )
 
     # -------------------------
-    # Evaluate on TEST
+    # Evaluate
     # -------------------------
     student.eval()
     with torch.no_grad():
@@ -123,7 +122,7 @@ def main():
     for h, m in horizon_metrics(Yte_denorm, preds).items():
         print(h, m)
 
-    print("\nTraining complete (regime-aware).")
+    print("\nTraining complete (bounded regime-aware KD).")
 
 
 if __name__ == "__main__":
