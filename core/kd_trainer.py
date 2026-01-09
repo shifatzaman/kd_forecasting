@@ -16,7 +16,15 @@ def train_student_kd(X, Y, teacher_preds, weights, student, epochs=60, alpha0=0.
         a = alpha0*(1-e/(epochs-1))
         p = student(X)
         t = (T*W).sum(1)
-        loss = (1-a)*mae(p,Y)+a*mse(p,t)
+        H = Y.shape[1]
+
+        # horizon weights: t+1 strongest → t+6 weakest
+        h_weights = torch.linspace(1.0, 0.5, H).to(Y.device)
+
+        loss_sup = (torch.abs(p - Y) * h_weights).mean()
+        loss_kd  = ((p - t)**2 * h_weights).mean()
+
+        loss = (1-a)*loss_sup + a*loss_kd
         opt.zero_grad()
         loss.backward()
         opt.step()

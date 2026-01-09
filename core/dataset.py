@@ -20,3 +20,8 @@ def make_windows(series, lookback=24, horizon=6):
         X.append(series[i-lookback:i])
         Y.append(series[i:i+horizon])
     return np.array(X), np.array(Y)
+
+def normalize(series):
+    mean = series.mean()
+    std = series.std() + 1e-6
+    return (series - mean) / std, mean, std

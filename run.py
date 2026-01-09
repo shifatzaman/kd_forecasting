@@ -16,6 +16,8 @@ VAL_SIZE = 24
 TEST_SIZE = 24
 
 series = load_series(DATA_PATH)
+series, mean, std = normalize(series)
+
 train, val, test = split_series(series)
 
 # windows for training (pure train only)
@@ -41,9 +43,15 @@ weights = compute_weights(Yva, va_preds)
 student = train_student_kd(Xtr, Ytr, tr_preds, weights, MLPStudent())
 
 # Evaluate on test set
-student_preds = student(
-    torch.tensor(Xte).unsqueeze(-1)
-).detach().numpy()
+student.eval()
+with torch.no_grad():
+    student_preds = student(
+        torch.tensor(Xte).unsqueeze(-1)
+    ).cpu().numpy()
+
+# de-normalize
+student_preds = student_preds * std + mean
+Yte = Yte * std + mean
 
 print("Overall MAE:", mae(Yte, student_preds))
 print("Overall RMSE:", rmse(Yte, student_preds))
