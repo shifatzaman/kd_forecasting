@@ -10,10 +10,12 @@ from core.kd_trainer import train_student_kd
 from core.metrics import mae, rmse, smape, horizon_metrics
 
 DATA_PATH = "data/Wfp_rice.csv"
-LOOKBACK = 24
+LOOKBACK = 48
 HORIZON = 6
 VAL_SIZE = 24
 TEST_SIZE = 24
+TEACHER_EPOCHS = 200
+STUDENT_EPOCHS = 200
 
 series = load_series(DATA_PATH)
 series, mean, std = normalize(series)
@@ -31,7 +33,7 @@ Xva, Yva = make_windows(val_context, lookback=LOOKBACK, horizon=HORIZON)
 test_context = np.concatenate([np.concatenate([train, val])[-LOOKBACK:], test])
 Xte, Yte = make_windows(test_context, lookback=LOOKBACK, horizon=HORIZON)
 
-teachers = [DLinearTeacher(), PatchTSTTeacher()]
+teachers = [DLinearTeacher(lookback=LOOKBACK, horizon=HORIZON, epochs=TEACHER_EPOCHS), PatchTSTTeacher(lookback=LOOKBACK, horizon=HORIZON, epochs=TEACHER_EPOCHS)]
 tr_preds, va_preds = [], []
 
 for t in teachers:
@@ -40,7 +42,7 @@ for t in teachers:
     va_preds.append(t.predict(Xva))
 
 weights = compute_weights(Yva, va_preds)
-student = train_student_kd(Xtr, Ytr, tr_preds, weights, MLPStudent())
+student = train_student_kd(Xtr, Ytr, tr_preds, weights, MLPStudent(lookback=LOOKBACK, horizon=HORIZON), epochs=STUDENT_EPOCHS)
 
 # Evaluate on test set
 student.eval()
